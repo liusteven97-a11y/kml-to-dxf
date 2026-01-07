@@ -58,22 +58,38 @@ function calculateLineLength(coordinates) {
     return length;
 }
 
+// Proyeksi lon/lat -> meter (Web Mercator) untuk perhitungan area yang lebih akurat
+function lonLatToMeters(lon, lat) {
+    const x = lon * 20037508.34 / 180;
+    let y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
+    y = y * 20037508.34 / 180;
+    return [x, y];
+}
+
 function calculatePolygonArea(coordinates) {
-    // Using Shoelace formula for area calculation
-    let area = 0;
-    const n = coordinates.length;
-    
-    for (let i = 0; i < n - 1; i++) {
-        const [lon1, lat1] = coordinates[i];
-        const [lon2, lat2] = coordinates[i + 1];
-        area += (lon1 * lat2) - (lon2 * lat1);
+    // Proyeksikan setiap titik ke meter lalu hitung area dengan Shoelace pada koordinat proyeksi
+    if (!coordinates || coordinates.length < 3) return 0;
+
+    const pts = coordinates.map(c => lonLatToMeters(c[0], c[1]));
+
+    // Pastikan ring tertutup (first == last)
+    if (pts.length > 0) {
+        const first = pts[0];
+        const last = pts[pts.length - 1];
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+            pts.push([first[0], first[1]]);
+        }
     }
-    
-    area = Math.abs(area / 2);
-    
-    // Convert to square meters (approximate)
-    const metersPerDegree = 111320; // at equator
-    return area * metersPerDegree * metersPerDegree;
+
+    let area = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+        const [x1, y1] = pts[i];
+        const [x2, y2] = pts[i + 1];
+        area += (x1 * y2) - (x2 * y1);
+    }
+    area = Math.abs(area / 2); // area dalam m^2
+
+    return area;
 }
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
