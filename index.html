@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KML/KMZ to DXF Converter with BOQ</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="leaflet.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>KML/KMZ to DXF Converter</h1>
+            <p>Convert KML/KMZ files to DXF with automatic BOQ calculation</p>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept=".kml,.kmz" hidden>
+                    <div class="upload-icon">📁</div>
+                    <p>Drag & Drop file KML/KMZ di sini</p>
+                    <p>atau</p>
+                    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Pilih File</button>
+                </div>
+                <div id="fileInfo" class="file-info hidden"></div>
+            </section>
+
+            <section class="preview-section hidden" id="previewSection">
+                <h2>Preview Peta</h2>
+                <div id="map" style="height: 400px;"></div>
+            </section>
+
+            <section class="conversion-section hidden" id="conversionSection">
+                <h2>Pengaturan Konversi</h2>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label for="geometryType">Tipe Geometri:</label>
+                        <select id="geometryType">
+                            <option value="all">Semua</option>
+                            <option value="point">Point</option>
+                            <option value="line">Line</option>
+                            <option value="polygon">Polygon</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="coordinateSystem">Sistem Koordinat:</label>
+                        <select id="coordinateSystem">
+                            <option value="WGS84">WGS84 (Default)</option>
+                            <option value="UTM">UTM</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="unitRate">Harga per Unit (Rp):</label>
+                        <input type="number" id="unitRate" value="50000" min="0">
+                    </div>
+                </div>
+                <button class="btn-primary" id="convertBtn">Konversi ke DXF</button>
+            </section>
+
+            <section class="boq-section hidden" id="boqSection">
+                <h2>Bill of Quantities (BOQ)</h2>
+                <div class="boq-summary" id="boqSummary"></div>
+                <div class="boq-table-wrapper">
+                    <table class="boq-table" id="boqTable">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Item</th>
+                                <th>Tipe</th>
+                                <th>Kuantitas</th>
+                                <th>Satuan</th>
+                                <th>Harga Satuan (Rp)</th>
+                                <th>Total (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="boqTableBody"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="6"><strong>Total Biaya</strong></td>
+                                <td><strong id="totalCost">Rp 0</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+
+            <section class="download-section hidden" id="downloadSection">
+                <h2>Download Hasil</h2>
+                <div class="download-buttons">
+                    <button class="btn-success" id="downloadDxfBtn">📥 Download DXF</button>
+                    <button class="btn-success" id="downloadBoqBtn">📊 Download BOQ (Excel)</button>
+                    <button class="btn-info" id="downloadJsonBtn">📄 Download JSON</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2026 KML to DXF Converter | Created for Engineering Projects</p>
+        </footer>
+    </div>
+
+    <script src="leaflet.js"></script>
+    <script src="jszip.min.js"></script>
+    <script src="FileSaver.min.js"></script>
+    <script src="xlsx.min.js"></script>
+	<script src="togeojson.min.js"></script>
+    <script src="converter.js"></script>
+    <script src="boq-calculator.js"></script>
+    <script src="dxf-generator.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
