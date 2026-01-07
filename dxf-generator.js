@@ -21,8 +21,35 @@ function generateDXF(geoJson, filterType) {
         ? geoJson.features
         : geoJson.features.filter(f => f.properties.geometryType.toLowerCase() === filterType.toLowerCase());
 
+    // Collect all coordinates (projected to meters) to compute centroid for offset
+    const allCoords = [];
     features.forEach(feature => {
-        dxf += convertFeatureToDXF(feature);
+        const geom = feature.geometry;
+        if (!geom) return;
+        if (geom.type === 'Point') {
+            allCoords.push(lonLatToMeters(geom.coordinates[0], geom.coordinates[1]));
+        } else if (geom.type === 'LineString') {
+            geom.coordinates.forEach(c => allCoords.push(lonLatToMeters(c[0], c[1])));
+        } else if (geom.type === 'Polygon') {
+            const ring = geom.coordinates[0] || [];
+            ring.forEach(c => allCoords.push(lonLatToMeters(c[0], c[1])));
+        }
+    });
+
+    // Compute centroid (if any) to translate coordinates near origin for better CAD compatibility
+    let cx = 0, cy = 0;
+    if (allCoords.length > 0) {
+        const s = allCoords.reduce((acc, p) => { acc.x += p[0]; acc.y += p[1]; return acc; }, {x:0,y:0});
+        cx = s.x / allCoords.length;
+        cy = s.y / allCoords.length;
+
+        // Add comment with original centroid
+        dxf += `999\nOriginal centroid X=${cx.toFixed(6)}, Y=${cy.toFixed(6)} (coordinates translated to origin)\n`;
+    }
+
+    // Convert each feature into DXF entities using projected coords translated by centroid
+    features.forEach(feature => {
+        dxf += convertFeatureToDXF(feature, cx, cy);
     });
 
     dxf += '0\nENDSEC\n';
@@ -39,52 +66,58 @@ function lonLatToMeters(lon, lat) {
     return [x, y];
 }
 
-function convertFeatureToDXF(feature) {
+function convertFeatureToDXF(feature, cx = 0, cy = 0) {
     const geomType = feature.geometry.type;
     const coords = feature.geometry.coordinates;
     let dxf = '';
 
+    function fmt(v) { return Number(v).toFixed(006); }
+
     if (geomType === 'Point') {
         const [x, y] = lonLatToMeters(coords[0], coords[1]);
+        const tx = x - cx;
+        const ty = y - cy;
         dxf += '0\nPOINT\n';
         dxf += '8\nKML_LAYER\n';
-        dxf += `10\n${x}\n`;
-        dxf += `20\n${y}\n`;
-        dxf += `30\n${coords[2] || 0}\n`;
+        dxf += `10\n${fmt(tx)}\n`;
+        dxf += `20\n${fmt(ty)}\n`;
+        dxf += `30\n${fmt(coords[2] || 0)}\n`;
     } else if (geomType === 'LineString') {
-        dxf += '0\nPOLYLINE\n';
-        dxf += '8\nKML_LAYER\n';
-        dxf += '66\n1\n'; // Vertices follow
-        dxf += '70\n0\n'; // Open polyline
-
-        coords.forEach(coord => {
-            const [x, y] = lonLatToMeters(coord[0], coord[1]);
-            dxf += '0\nVERTEX\n';
-            dxf += '8\nKML_LAYER\n';
-            dxf += `10\n${x}\n`;
-            dxf += `20\n${y}\n`;
-            dxf += `30\n${coord[2] || 0}\n`;
+        // Use LWPOLYLINE for better compatibility
+        const pts = coords.map(c => {
+            const [x, y] = lonLatToMeters(c[0], c[1]);
+            return [x - cx, y - cy];
         });
 
-        dxf += '0\nSEQEND\n';
+        dxf += '0\nLWPOLYLINE\n';
+        dxf += '8\nKML_LAYER\n';
+        dxf += `90\n${pts.length}\n`; // vertex count
+        dxf += '70\n0\n'; // open polyline
+        pts.forEach(p => {
+            dxf += `10\n${fmt(p[0])}\n`;
+            dxf += `20\n${fmt(p[1])}\n`;
+        });
     } else if (geomType === 'Polygon') {
         const ring = coords[0];
-        dxf += '0\nPOLYLINE\n';
-        dxf += '8\nKML_LAYER\n';
-        dxf += '66\n1\n';
-        dxf += '70\n1\n'; // Closed polyline
-
-        ring.forEach(coord => {
-            const [x, y] = lonLatToMeters(coord[0], coord[1]);
-            dxf += '0\nVERTEX\n';
-            dxf += '8\nKML_LAYER\n';
-            dxf += `10\n${x}\n`;
-            dxf += `20\n${y}\n`;
-            dxf += `30\n${coord[2] || 0}\n`;
+        const pts = ring.map(c => {
+            const [x, y] = lonLatToMeters(c[0], c[1]);
+            return [x - cx, y - cy];
         });
 
-        dxf += '0\nSEQEND\n';
+        dxf += '0\nLWPOLYLINE\n';
+        dxf += '8\nKML_LAYER\n';
+        dxf += `90\n${pts.length}\n`;
+        dxf += '70\n1\n'; // closed polyline
+        pts.forEach(p => {
+            dxf += `10\n${fmt(p[0])}\n`;
+            dxf += `20\n${fmt(p[1])}\n`;
+        });
     }
 
     return dxf;
+}
+
+// Export functions for testing in browser/node if needed
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { generateDXF, lonLatToMeters, convertFeatureToDXF };
 }
